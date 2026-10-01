@@ -1,0 +1,545 @@
+if _G.Movement110c then return end
+_G.Movement110c = true
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TextService      = game:GetService("TextService")
+
+local player    = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local uiFolder = Instance.new("Folder")
+uiFolder.Name = "GITHUB110C_MOVEMENT"
+uiFolder.Parent = playerGui
+
+local THEMES = {
+    Red    = { accent = Color3.fromRGB(230, 70, 70),   accentLt = Color3.fromRGB(255, 140, 140), accentDk = Color3.fromRGB(120, 30, 30),  bgDark = Color3.fromRGB(16, 8, 8),    bgMid = Color3.fromRGB(26, 14, 14) },
+    Orange = { accent = Color3.fromRGB(255, 150, 50),  accentLt = Color3.fromRGB(255, 200, 140), accentDk = Color3.fromRGB(140, 75, 20),  bgDark = Color3.fromRGB(16, 11, 6),   bgMid = Color3.fromRGB(28, 18, 10) },
+    Yellow = { accent = Color3.fromRGB(240, 220, 70),  accentLt = Color3.fromRGB(255, 245, 160), accentDk = Color3.fromRGB(140, 120, 30), bgDark = Color3.fromRGB(16, 15, 8),   bgMid = Color3.fromRGB(28, 26, 12) },
+    Green  = { accent = Color3.fromRGB(70, 220, 120),  accentLt = Color3.fromRGB(150, 255, 185), accentDk = Color3.fromRGB(30, 120, 60),  bgDark = Color3.fromRGB(8, 16, 10),   bgMid = Color3.fromRGB(14, 28, 18) },
+    Blue   = { accent = Color3.fromRGB(70, 150, 255),  accentLt = Color3.fromRGB(150, 205, 255), accentDk = Color3.fromRGB(30, 75, 140),  bgDark = Color3.fromRGB(8, 10, 16),   bgMid = Color3.fromRGB(14, 18, 28) },
+    Violet = { accent = Color3.fromRGB(150, 80, 255),  accentLt = Color3.fromRGB(190, 140, 255), accentDk = Color3.fromRGB(80, 40, 140),  bgDark = Color3.fromRGB(10, 8, 14),   bgMid = Color3.fromRGB(18, 14, 24) },
+}
+
+local currentThemeName = "Violet"
+local theme = THEMES[currentThemeName]
+
+local masterOn = false
+local state = {
+    speedwalk     = false,
+    infiniteJump  = false,
+    noclip        = false,
+    speed         = 50,
+}
+
+local character, humanoid
+local noclipConn, infJumpConn, speedHeartbeatConn
+local originalSpeed = 16
+local originalCollide = {}
+
+local function setupCharacter()
+    character = player.Character or player.CharacterAdded:Wait()
+    humanoid  = character:WaitForChild("Humanoid")
+    originalSpeed = humanoid.WalkSpeed
+end
+
+setupCharacter()
+
+local function anyEnabled()
+    return masterOn and (state.speedwalk or state.infiniteJump or state.noclip)
+end
+
+local function stopNoclip()
+    if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+    for part, wasCollide in pairs(originalCollide) do
+        if part and part.Parent then part.CanCollide = wasCollide end
+    end
+    originalCollide = {}
+end
+
+local function startNoclip()
+    stopNoclip()
+    noclipConn = RunService.Stepped:Connect(function()
+        if not state.noclip or not character then return end
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if originalCollide[part] == nil then
+                    originalCollide[part] = part.CanCollide
+                end
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+
+local function stopInfJump()
+    if infJumpConn then infJumpConn:Disconnect(); infJumpConn = nil end
+end
+
+local function startInfJump()
+    stopInfJump()
+    if humanoid then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+    end
+    infJumpConn = UserInputService.JumpRequest:Connect(function()
+        if not state.infiniteJump then return end
+        if humanoid and humanoid.Parent then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+local function stopSpeedwalk()
+    if speedHeartbeatConn then speedHeartbeatConn:Disconnect(); speedHeartbeatConn = nil end
+    if humanoid and humanoid.Parent then
+        humanoid.WalkSpeed = originalSpeed
+    end
+end
+
+local function startSpeedwalk()
+    stopSpeedwalk()
+    speedHeartbeatConn = RunService.Heartbeat:Connect(function()
+        if not state.speedwalk then return end
+        if humanoid and humanoid.Parent and humanoid.WalkSpeed ~= state.speed then
+            humanoid.WalkSpeed = state.speed
+        end
+    end)
+    if humanoid and humanoid.Parent then
+        humanoid.WalkSpeed = state.speed
+    end
+end
+
+local function refreshFeatures()
+    if not anyEnabled() then
+        stopNoclip()
+        stopInfJump()
+        stopSpeedwalk()
+        return
+    end
+
+    if state.noclip then startNoclip() else stopNoclip() end
+    if state.infiniteJump then startInfJump() else stopInfJump() end
+    if state.speedwalk then startSpeedwalk() else stopSpeedwalk() end
+end
+
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(0.4)
+    character = newChar
+    humanoid  = newChar:WaitForChild("Humanoid")
+    originalSpeed = humanoid.WalkSpeed
+    originalCollide = {}
+    refreshFeatures()
+end)
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "github110c_UI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = uiFolder
+
+local MAIN_W, MAIN_H = 460, 178
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(MAIN_W, MAIN_H)
+main.Position = UDim2.new(0.5, -MAIN_W/2, 0.5, -MAIN_H/2)
+main.BackgroundColor3 = theme.bgDark
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
+
+local mc = Instance.new("UICorner"); mc.CornerRadius = UDim.new(0, 10); mc.Parent = main
+local ms = Instance.new("UIStroke"); ms.Color = theme.accent; ms.Thickness = 1; ms.Transparency = 0.35; ms.Parent = main
+
+local glow = Instance.new("Frame")
+glow.Size = UDim2.new(1, 8, 1, 8)
+glow.Position = UDim2.new(0, -4, 0, -4)
+glow.BackgroundColor3 = theme.accent
+glow.BackgroundTransparency = 0.9
+glow.BorderSizePixel = 0
+glow.ZIndex = 0
+glow.Parent = main
+local gc = Instance.new("UICorner"); gc.CornerRadius = UDim.new(0, 12); gc.Parent = glow
+
+local mg = Instance.new("UIGradient"); mg.Rotation = 90; mg.Parent = main
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 26)
+titleBar.BackgroundTransparency = 1
+titleBar.Active = true
+titleBar.ZIndex = 2
+titleBar.Parent = main
+
+local titleClip = Instance.new("Frame")
+titleClip.Size = UDim2.new(1, -16, 1, 0)
+titleClip.Position = UDim2.new(0, 8, 0, 0)
+titleClip.BackgroundTransparency = 1
+titleClip.ClipsDescendants = true
+titleClip.Active = false
+titleClip.ZIndex = 3
+titleClip.Parent = titleBar
+
+local TITLE_TEXT = "github.com/110c"
+local TITLE_SIZE = 12
+local titleTextWidth = TextService:GetTextSize(TITLE_TEXT, TITLE_SIZE, Enum.Font.GothamBold, Vector2.new(10000, 100)).X + 4
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.fromOffset(titleTextWidth, 26)
+titleLabel.Position = UDim2.fromOffset(0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = TITLE_TEXT
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.TextStrokeColor3 = theme.accent
+titleLabel.TextStrokeTransparency = 0
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = TITLE_SIZE
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Active = false
+titleLabel.ZIndex = 4
+titleLabel.Parent = titleClip
+
+local masterBtn = Instance.new("TextButton")
+masterBtn.Size = UDim2.new(1, -28, 0, 26)
+masterBtn.Position = UDim2.fromOffset(14, 32)
+masterBtn.BackgroundColor3 = theme.bgMid
+masterBtn.Text = "DISABLED"
+masterBtn.TextColor3 = Color3.new(1, 1, 1)
+masterBtn.TextStrokeColor3 = theme.accent
+masterBtn.TextStrokeTransparency = 0
+masterBtn.Font = Enum.Font.GothamBold
+masterBtn.TextSize = 12
+masterBtn.BorderSizePixel = 0
+masterBtn.AutoButtonColor = false
+masterBtn.ZIndex = 4
+masterBtn.Parent = main
+
+local mbc = Instance.new("UICorner"); mbc.CornerRadius = UDim.new(0, 6); mbc.Parent = masterBtn
+local mbs = Instance.new("UIStroke"); mbs.Color = theme.accentDk; mbs.Thickness = 1; mbs.Transparency = 0.2; mbs.Parent = masterBtn
+
+local cardRowY = 66
+local cardW, cardH, cardGap = 102, 76, 4
+local cardStartX = 14
+
+local function makeFeatureCard(labelText, xPos, isSpeed)
+    local card = Instance.new("TextButton")
+    card.Size = UDim2.fromOffset(cardW, cardH)
+    card.Position = UDim2.fromOffset(xPos, cardRowY)
+    card.BackgroundColor3 = theme.bgMid
+    card.Text = ""
+    card.BorderSizePixel = 0
+    card.AutoButtonColor = false
+    card.ZIndex = 2
+    card.Parent = main
+
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = card
+    local s = Instance.new("UIStroke"); s.Color = theme.accentDk; s.Thickness = 1; s.Transparency = 0.2; s.Parent = card
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -6, 0, 14)
+    lbl.Position = UDim2.new(0, 3, 0, 6)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.new(1, 1, 1)
+    lbl.TextStrokeColor3 = theme.accent
+    lbl.TextStrokeTransparency = 0
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 9
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    lbl.TextScaled = true
+    lbl.ZIndex = 4
+    lbl.Parent = card
+
+    local indicator = Instance.new("Frame")
+    indicator.Size = UDim2.fromOffset(10, 10)
+    indicator.Position = UDim2.new(0.5, -5, 1, -20)
+    indicator.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+    indicator.BorderSizePixel = 0
+    indicator.ZIndex = 3
+    indicator.Parent = card
+    local ic = Instance.new("UICorner"); ic.CornerRadius = UDim.new(1, 0); ic.Parent = indicator
+
+    local speedBox
+    if isSpeed then
+        indicator.Visible = false
+        speedBox = Instance.new("TextBox")
+        speedBox.Size = UDim2.fromOffset(52, 24)
+        speedBox.Position = UDim2.new(0.5, -26, 1, -32)
+        speedBox.BackgroundColor3 = theme.bgDark
+        speedBox.Text = tostring(state.speed)
+        speedBox.TextColor3 = Color3.new(1, 1, 1)
+        speedBox.TextStrokeColor3 = theme.accent
+        speedBox.TextStrokeTransparency = 0
+        speedBox.Font = Enum.Font.GothamBold
+        speedBox.TextSize = 13
+        speedBox.TextXAlignment = Enum.TextXAlignment.Center
+        speedBox.ClearTextOnFocus = false
+        speedBox.ZIndex = 4
+        speedBox.Parent = card
+        local sbc = Instance.new("UICorner"); sbc.CornerRadius = UDim.new(0, 5); sbc.Parent = speedBox
+        local sbs = Instance.new("UIStroke"); sbs.Color = theme.accentDk; sbs.Thickness = 1; sbs.Transparency = 0.2; sbs.Parent = speedBox
+    end
+
+    return card, s, lbl, indicator, speedBox
+end
+
+local speedCard, speedS, speedL, speedI, speedBox = makeFeatureCard("SPEEDWALK",     cardStartX,                      true)
+local jumpCard,  jumpS,  jumpL,  jumpI             = makeFeatureCard("INFINITE JUMP", cardStartX + (cardW+cardGap),    false)
+local noclipCard, noclipS, noclipL, noclipI        = makeFeatureCard("NOCLIP",       cardStartX + (cardW+cardGap)*2,  false)
+
+local swatchStartX = 344
+local swatchStartY = 71
+local swatchSize   = 30
+local swatchGapX   = 6
+local swatchGapY   = 6
+local swatchRefs   = {}
+
+local function makeSwatch(themeName, col, row)
+    local key = THEMES[themeName]
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromOffset(swatchSize, swatchSize)
+    btn.Position = UDim2.fromOffset(
+        swatchStartX + col * (swatchSize + swatchGapX),
+        swatchStartY + row * (swatchSize + swatchGapY)
+    )
+    btn.BackgroundColor3 = key.accent
+    btn.Text = ""
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    btn.ZIndex = 2
+    btn.Parent = main
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 6); c.Parent = btn
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.new(1, 1, 1); s.Thickness = 2; s.Transparency = 1; s.Parent = btn
+    swatchRefs[themeName] = { btn = btn, stroke = s }
+    return btn
+end
+
+makeSwatch("Red",    0, 0)
+makeSwatch("Orange", 1, 0)
+makeSwatch("Yellow", 2, 0)
+makeSwatch("Green",  0, 1)
+makeSwatch("Blue",   1, 1)
+makeSwatch("Violet", 2, 1)
+
+local statusDot = Instance.new("Frame")
+statusDot.Size = UDim2.fromOffset(6, 6)
+statusDot.Position = UDim2.new(0, 14, 1, -18)
+statusDot.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+statusDot.BorderSizePixel = 0
+statusDot.ZIndex = 3
+statusDot.Parent = main
+local sdc = Instance.new("UICorner"); sdc.CornerRadius = UDim.new(1, 0); sdc.Parent = statusDot
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0.6, 0, 0, 14)
+statusLabel.Position = UDim2.new(0, 26, 1, -22)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Features Disabled: None"
+statusLabel.TextColor3 = Color3.new(1, 1, 1)
+statusLabel.TextStrokeColor3 = theme.accent
+statusLabel.TextStrokeTransparency = 0
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 10
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.ZIndex = 4
+statusLabel.Parent = main
+
+local watermark = Instance.new("TextLabel")
+watermark.Size = UDim2.new(0.4, -14, 0, 14)
+watermark.Position = UDim2.new(1, -14, 1, -22)
+watermark.AnchorPoint = Vector2.new(1, 0)
+watermark.BackgroundTransparency = 1
+watermark.Text = "إبراهيم"
+watermark.TextColor3 = Color3.new(1, 1, 1)
+watermark.TextStrokeColor3 = theme.accent
+watermark.TextStrokeTransparency = 0
+watermark.Font = Enum.Font.GothamBold
+watermark.TextSize = 11
+watermark.TextXAlignment = Enum.TextXAlignment.Right
+watermark.ZIndex = 4
+watermark.Parent = main
+
+local FEATURE_LABELS = { speedwalk = "Speedwalk", infiniteJump = "Infinite Jump", noclip = "Noclip" }
+
+local function getSelectedList()
+    local list = {}
+    if state.speedwalk    then table.insert(list, FEATURE_LABELS.speedwalk)    end
+    if state.infiniteJump then table.insert(list, FEATURE_LABELS.infiniteJump) end
+    if state.noclip       then table.insert(list, FEATURE_LABELS.noclip)       end
+    return list
+end
+
+local function refreshToggleVisual(card, stroke, label, indicator, enabled)
+    if enabled then
+        card.BackgroundColor3 = theme.bgMid:Lerp(theme.accent, 0.28)
+        stroke.Color = theme.accent
+        stroke.Transparency = 0
+        indicator.BackgroundColor3 = theme.accent
+    else
+        card.BackgroundColor3 = theme.bgMid
+        stroke.Color = theme.accentDk
+        stroke.Transparency = 0.2
+        indicator.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+    end
+end
+
+local function refreshAllToggles()
+    refreshToggleVisual(speedCard,  speedS,  speedL,  speedI,  state.speedwalk)
+    refreshToggleVisual(jumpCard,   jumpS,   jumpL,   jumpI,   state.infiniteJump)
+    refreshToggleVisual(noclipCard, noclipS, noclipL, noclipI, state.noclip)
+end
+
+local function refreshStatus()
+    local list = getSelectedList()
+    local suffix = (#list == 0) and "None" or table.concat(list, " + ")
+    statusLabel.Text = masterOn and ("Features Enabled: " .. suffix) or ("Features Disabled: " .. suffix)
+    statusDot.BackgroundColor3 = (#list > 0) and theme.accent or Color3.fromRGB(70, 70, 80)
+end
+
+local function refreshMasterVisual()
+    if masterOn then
+        masterBtn.Text = "ENABLED"
+        masterBtn.BackgroundColor3 = theme.bgMid:Lerp(theme.accent, 0.3)
+        mbs.Color = theme.accent
+        mbs.Transparency = 0
+    else
+        masterBtn.Text = "DISABLED"
+        masterBtn.BackgroundColor3 = theme.bgMid
+        mbs.Color = theme.accentDk
+        mbs.Transparency = 0.2
+    end
+end
+
+local function applyTheme(name)
+    currentThemeName = name
+    theme = THEMES[name]
+
+    main.BackgroundColor3 = theme.bgDark
+    ms.Color = theme.accent
+    glow.BackgroundColor3 = theme.accent
+    mg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme.bgMid),
+        ColorSequenceKeypoint.new(1, theme.bgDark),
+    })
+
+    titleLabel.TextStrokeColor3 = theme.accent
+    masterBtn.TextStrokeColor3  = theme.accent
+    speedL.TextStrokeColor3 = theme.accent
+    jumpL.TextStrokeColor3  = theme.accent
+    noclipL.TextStrokeColor3 = theme.accent
+    statusLabel.TextStrokeColor3 = theme.accent
+    watermark.TextStrokeColor3 = theme.accent
+    if speedBox then speedBox.TextStrokeColor3 = theme.accent end
+
+    refreshMasterVisual()
+    refreshAllToggles()
+    refreshStatus()
+
+    if speedBox then
+        speedBox.BackgroundColor3 = theme.bgDark
+        for _, ch in ipairs(speedBox:GetChildren()) do
+            if ch:IsA("UIStroke") then ch.Color = theme.accentDk end
+        end
+    end
+
+    for nameKey, ref in pairs(swatchRefs) do
+        ref.stroke.Transparency = (nameKey == currentThemeName) and 0 or 1
+    end
+end
+
+speedCard.Activated:Connect(function()
+    state.speedwalk = not state.speedwalk
+    refreshAllToggles(); refreshStatus(); refreshFeatures()
+end)
+jumpCard.Activated:Connect(function()
+    state.infiniteJump = not state.infiniteJump
+    refreshAllToggles(); refreshStatus(); refreshFeatures()
+end)
+noclipCard.Activated:Connect(function()
+    state.noclip = not state.noclip
+    refreshAllToggles(); refreshStatus(); refreshFeatures()
+end)
+
+masterBtn.Activated:Connect(function()
+    masterOn = not masterOn
+    refreshMasterVisual()
+    refreshStatus()
+    refreshFeatures()
+end)
+
+if speedBox then
+    speedBox.FocusLost:Connect(function()
+        local num = tonumber(speedBox.Text)
+        if num then
+            num = math.clamp(math.floor(num), 0, 100000)
+            state.speed = num
+            speedBox.Text = tostring(num)
+            if state.speedwalk and humanoid and humanoid.Parent then
+                humanoid.WalkSpeed = state.speed
+            end
+        else
+            speedBox.Text = tostring(state.speed)
+        end
+    end)
+end
+
+for nameKey, ref in pairs(swatchRefs) do
+    ref.btn.Activated:Connect(function()
+        applyTheme(nameKey)
+    end)
+end
+
+applyTheme(currentThemeName)
+
+local CONTAINER_W = MAIN_W - 16
+local BASE_PX_PER_SEC = 130
+local marqueeX = CONTAINER_W
+local currentSpeed = 1
+local targetSpeed = 1
+local speedTimer = 0
+local nextSpeedChange = 0.4 + math.random() * 0.8
+
+RunService.RenderStepped:Connect(function(dt)
+    speedTimer = speedTimer + dt
+    if speedTimer >= nextSpeedChange then
+        speedTimer = 0
+        nextSpeedChange = 0.35 + math.random() * 1.15
+        targetSpeed = 0.2 + math.random() * 2.3
+    end
+    currentSpeed = currentSpeed + (targetSpeed - currentSpeed) * math.min(1, dt * 4.5)
+
+    marqueeX = marqueeX - BASE_PX_PER_SEC * currentSpeed * dt
+    if marqueeX < -titleTextWidth then
+        marqueeX = CONTAINER_W
+    end
+    titleLabel.Position = UDim2.fromOffset(marqueeX, 0)
+end)
+
+local dragging = false
+local dragStart, startPos
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local d = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + d.X,
+            startPos.Y.Scale, startPos.Y.Offset + d.Y
+        )
+    end
+end)
