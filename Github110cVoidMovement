@@ -5,13 +5,15 @@ local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TextService      = game:GetService("TextService")
+local CoreGui          = game:GetService("CoreGui")
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local uiFolder = Instance.new("Folder")
 uiFolder.Name = "GITHUB110C_MOVEMENT"
-uiFolder.Parent = playerGui
+local ok = pcall(function() uiFolder.Parent = CoreGui end)
+if not ok then uiFolder.Parent = playerGui end
 
 local THEMES = {
     Red    = { accent = Color3.fromRGB(230, 70, 70),   accentLt = Color3.fromRGB(255, 140, 140), accentDk = Color3.fromRGB(120, 30, 30),  bgDark = Color3.fromRGB(16, 8, 8),    bgMid = Color3.fromRGB(26, 14, 14) },
