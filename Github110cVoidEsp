@@ -5,13 +5,15 @@ local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TextService      = game:GetService("TextService")
+local CoreGui          = game:GetService("CoreGui")
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local espFolder = Instance.new("Folder")
 espFolder.Name = "GITHUB110C_VOID_ESP"
-espFolder.Parent = playerGui
+local ok = pcall(function() espFolder.Parent = CoreGui end)
+if not ok then espFolder.Parent = playerGui end
 
 local THEMES = {
     Red    = { accent = Color3.fromRGB(230, 70, 70),   accentLt = Color3.fromRGB(255, 140, 140), accentDk = Color3.fromRGB(120, 30, 30),  bgDark = Color3.fromRGB(16, 8, 8),    bgMid = Color3.fromRGB(26, 14, 14) },
